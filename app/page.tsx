@@ -6,6 +6,7 @@ import { rid } from '@/lib/id';
 import type { TripInput, TripPlan, ItineraryItem, LocationPoint } from '@/lib/types';
 import { saveTrip } from '@/lib/storage';
 import { guessCoords } from '@/lib/geo';
+import { modeColor } from '@/lib/amap';
 
 type SanitizedItinerary = ItineraryItem & { location: LocationPoint };
 
@@ -48,19 +49,35 @@ export default function HomePage() {
     });
   }, [result, destination]);
 
+  const transitConnections = useMemo(() => {
+    const items = sanitizedItinerary;
+    const connections = [] as { from: { lat: number; lng: number }; to: { lat: number; lng: number }; color: string }[];
+    for (let i = 1; i < items.length; i += 1) {
+      const prev = items[i - 1];
+      const current = items[i];
+      if (!prev || !current) continue;
+      const dominantMode = current.transit?.segments?.[0]?.mode;
+      connections.push({
+        from: prev.location,
+        to: current.location,
+        color: modeColor(dominantMode),
+      });
+    }
+    return connections;
+  }, [sanitizedItinerary]);
+
   async function plan() {
     setLoading(true);
     setError(null);
     try {
-      const s = await import('@/lib/storage').then(m => m.getSettings());
-      const llm = await s;
+      const settings = await import('@/lib/storage').then(m => m.getSettings());
       const res = await fetch('/api/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...input,
-          llm: llm.llmApiKey && llm.llmBaseUrl && llm.llmModel
-            ? { baseUrl: llm.llmBaseUrl, apiKey: llm.llmApiKey, model: llm.llmModel }
+          llm: settings.llmApiKey && settings.llmBaseUrl && settings.llmModel
+            ? { baseUrl: settings.llmBaseUrl, apiKey: settings.llmApiKey, model: settings.llmModel }
             : undefined,
         }),
       });
@@ -83,6 +100,23 @@ export default function HomePage() {
         notes: data.notes || data.raw,
         budgetEstimate: data.budgetEstimate,
       };
+      if (settings.amapRestKey) {
+        try {
+          const hotelsRes = await fetch('/api/hotels', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ destination: input.destination, amapKey: settings.amapRestKey }),
+          });
+          if (hotelsRes.ok) {
+            const hotelData = await hotelsRes.json();
+            if (hotelData.hotels?.length) {
+              plan.hotels = hotelData.hotels;
+            }
+          }
+        } catch (err) {
+          console.warn('高德酒店 API 调用失败', err);
+        }
+      }
       setResult(plan);
       await saveTrip(plan);
     } catch (e: any) {
@@ -156,6 +190,7 @@ export default function HomePage() {
               title: `Day ${it.day}`,
               day: it.day,
             }))}
+            connections={transitConnections}
           />
           <div className="day-coords">
             {sanitizedItinerary.map((it, idx) => {

@@ -4,8 +4,9 @@ import { getSettings } from '@/lib/storage';
 
 type Marker = { lat: number; lng: number; title?: string };
 type Waypoint = { lat?: number; lng?: number; name?: string; title?: string; day?: number };
+type Connection = { from: { lat: number; lng: number }; to: { lat: number; lng: number }; color?: string };
 
-export default function MapView({ markers = [] as Marker[], centerQuery, waypoints = [] as Waypoint[], routeMode = 'polyline' as 'polyline' | 'driving' | 'walking' }: { markers?: Marker[]; centerQuery?: string; waypoints?: Waypoint[]; routeMode?: 'polyline' | 'driving' | 'walking' }) {
+export default function MapView({ markers = [] as Marker[], centerQuery, waypoints = [] as Waypoint[], routeMode = 'polyline' as 'polyline' | 'driving' | 'walking', connections = [] as Connection[] }: { markers?: Marker[]; centerQuery?: string; waypoints?: Waypoint[]; routeMode?: 'polyline' | 'driving' | 'walking'; connections?: Connection[] }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -48,6 +49,10 @@ export default function MapView({ markers = [] as Marker[], centerQuery, waypoin
         const AMap = (window as any).AMap;
         if (!AMap) return;
         const map = new AMap.Map(ref.current, { zoom: 11, viewMode: '3D' });
+        AMap.plugin('AMap.Scale', () => {
+          const scale = new AMap.Scale({ position: 'RB' });
+          map.addControl(scale);
+        });
         // markers
         markers.forEach(m => new AMap.Marker({ position: [m.lng, m.lat], title: m.title, map }));
         // route from waypoints (polyline)
@@ -107,6 +112,15 @@ export default function MapView({ markers = [] as Marker[], centerQuery, waypoin
             map.setZoom(13);
             map.setCenter([resolved[0].lng, resolved[0].lat]);
           }
+          connections.forEach(conn => {
+            const polyline = new AMap.Polyline({
+              path: [[conn.from.lng, conn.from.lat], [conn.to.lng, conn.to.lat]],
+              strokeColor: conn.color || '#94a3b8',
+              strokeWeight: 5,
+              lineCap: 'round',
+            });
+            map.add(polyline);
+          });
         }
         if (!markers.length && !waypoints.length && centerQuery) {
           await new Promise<void>(res => AMap.plugin('AMap.Geocoder', () => res()));
@@ -121,6 +135,8 @@ export default function MapView({ markers = [] as Marker[], centerQuery, waypoin
         if (!BMap) return;
         const map = new BMap.Map(ref.current);
         map.centerAndZoom(new BMap.Point(116.404, 39.915), 11);
+        const scaleCtrl = new BMap.ScaleControl({ anchor: (window as any).BMAP_ANCHOR_BOTTOM_RIGHT });
+        map.addControl(scaleCtrl);
         markers.forEach(m => {
           const pt = new BMap.Point(m.lng, m.lat);
           map.addOverlay(new BMap.Marker(pt));
@@ -167,6 +183,13 @@ export default function MapView({ markers = [] as Marker[], centerQuery, waypoin
           } else if (points.length === 1) {
             map.centerAndZoom(points[0].point, 13);
           }
+          connections.forEach(conn => {
+            const polyline = new BMap.Polyline([
+              new BMap.Point(conn.from.lng, conn.from.lat),
+              new BMap.Point(conn.to.lng, conn.to.lat),
+            ], { strokeColor: conn.color || '#94a3b8', strokeWeight: 5 });
+            map.addOverlay(polyline);
+          });
         }
         if (!markers.length && !waypoints.length && centerQuery) {
           const geocoder = new BMap.Geocoder();

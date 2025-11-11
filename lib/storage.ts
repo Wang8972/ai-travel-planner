@@ -49,6 +49,7 @@ export async function deleteExpense(id: string): Promise<void> {
 export type Settings = {
   mapProvider?: 'amap' | 'baidu';
   mapApiKey?: string;
+  amapRestKey?: string;
   llmBaseUrl?: string;
   llmApiKey?: string;
   llmModel?: string;

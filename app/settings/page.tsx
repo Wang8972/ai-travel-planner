@@ -28,6 +28,12 @@ export default function SettingsPage() {
       </div>
       <div className="row">
         <div className="col">
+          <label>高德 Web 服务 Key（用于酒店/POI）</label>
+          <input value={s.amapRestKey || ''} onChange={e=>setS({ ...s, amapRestKey: e.target.value })} placeholder="例如：a1234567890abcdef" />
+        </div>
+      </div>
+      <div className="row">
+        <div className="col">
           <label>LLM Base URL（OpenAI 兼容）</label>
           <input value={s.llmBaseUrl || ''} onChange={e=>setS({ ...s, llmBaseUrl: e.target.value })} placeholder="https://api.openai.com/v1 或其它" />
         </div>

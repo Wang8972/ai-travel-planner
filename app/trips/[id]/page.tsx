@@ -5,15 +5,13 @@ import MapView from '@/components/MapView';
 import { getTrip } from '@/lib/storage';
 import type { TripPlan, LocationPoint, ItineraryItem } from '@/lib/types';
 import { guessCoords } from '@/lib/geo';
-
+import { modeColor } from '@/lib/amap';
 type Sanitized = ItineraryItem & { location: LocationPoint };
-
 export default function TripDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const [trip, setTrip] = useState<TripPlan | null>(null);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     if (!params?.id) return;
     (async () => {
@@ -22,7 +20,6 @@ export default function TripDetailPage() {
       setLoading(false);
     })();
   }, [params?.id]);
-
   const sanitizedItinerary: Sanitized[] = useMemo(() => {
     if (!trip) return [];
     const fallback = guessCoords(trip.input.destination);
@@ -42,9 +39,42 @@ export default function TripDetailPage() {
       } as Sanitized;
     });
   }, [trip]);
-
+  const transitConnections = useMemo(() => {
+    const connections: { from: { lat: number; lng: number }; to: { lat: number; lng: number }; color: string }[] = [];
+    for (let i = 1; i < sanitizedItinerary.length; i += 1) {
+      const prev = sanitizedItinerary[i - 1];
+      const current = sanitizedItinerary[i];
+      if (!prev || !current) continue;
+      const mode = current.transit?.segments?.[0]?.mode;
+      connections.push({ from: prev.location, to: current.location, color: modeColor(mode) });
+    }
+    return connections;
+  }, [sanitizedItinerary]);
+  const handleShare = async () => {
+    const url = typeof window !== 'undefined' ? window.location.href : '';
+    if (!url) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `${trip?.input.destination} 行程`, url });
+      } catch (err) {
+        console.warn('分享失败', err);
+      }
+    } else if (navigator.clipboard) {
+      await navigator.clipboard.writeText(url);
+      alert('链接已复制，可手动分享。');
+    }
+  };
+  const handleExport = () => {
+    if (typeof window !== 'undefined') {
+      window.print();
+    }
+  };
   if (loading) {
-    return <section className="card"><p className="muted">加载行程中…</p></section>;
+    return (
+      <section className="card">
+        <p className="muted">加载行程中…</p>
+      </section>
+    );
   }
   if (!trip) {
     return (
@@ -54,11 +84,16 @@ export default function TripDetailPage() {
       </section>
     );
   }
-
   return (
     <div className="page">
       <section className="card">
-        <button className="ghost" onClick={() => router.back()} style={{ marginBottom: 12 }}>返回</button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <button className="ghost" onClick={() => router.back()}>返回</button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="ghost" onClick={handleShare}>分享链接</button>
+            <button className="ghost" onClick={handleExport}>导出 PDF</button>
+          </div>
+        </div>
         <h2>{trip.input.destination} · {trip.input.days} 天旅程</h2>
         <p className="muted">创建于 {new Date(trip.createdAt).toLocaleString()}</p>
         <div className="plan-meta">
@@ -75,6 +110,7 @@ export default function TripDetailPage() {
             title: `Day ${it.day}`,
             day: it.day,
           }))}
+          connections={transitConnections}
         />
         <div className="day-coords">
           {sanitizedItinerary.map((it, idx) => (
@@ -102,8 +138,14 @@ export default function TripDetailPage() {
                   <strong>公共交通</strong>
                   <div className="muted">{it.transit.summary}</div>
                   <ul>
-                    {it.transit.segments?.map((seg, idx) => (
-                      <li key={idx}>{seg.mode} {seg.lineName ? `· ${seg.lineName}` : ''} {seg.from && seg.to ? `(${seg.from} → ${seg.to})` : ''}</li>
+                    {it.transit.segments?.map((seg, segmentIdx) => (
+                      <li key={segmentIdx}>
+                        {seg.mode}
+                        {seg.lineName ? ` · ${seg.lineName}` : ''}
+                        {seg.from && seg.to ? ` (${seg.from} → ${seg.to})` : ''}
+                        {seg.durationMinutes ? ` · ${seg.durationMinutes} 分钟` : ''}
+                        {seg.costCNY ? ` · ¥${seg.costCNY}` : ''}
+                      </li>
                     ))}
                   </ul>
                 </div>
