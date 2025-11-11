@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 export const metadata = {
   title: 'AI Travel Planner',
-  description: 'Web AI 旅行规划师',
+  description: 'AI 辅助 · 语音输入 · 沉浸式旅行规划体验',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -13,7 +13,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <header className="app-header">
           <nav className="nav">
-            <Link href="/">AI 旅行规划</Link>
+            <Link href="/" aria-label="AI Travel Planner 主页">
+              <strong>Æther Trips</strong>
+            </Link>
             <div className="spacer" />
             <Link href="/trips">我的行程</Link>
             <Link href="/expenses">费用</Link>
@@ -22,9 +24,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           </nav>
         </header>
         <main className="container">{children}</main>
-        <footer className="footer">© {new Date().getFullYear()} AI Travel Planner</footer>
+        <footer className="footer">© {new Date().getFullYear()} Æther Trips</footer>
       </body>
     </html>
   );
 }
-

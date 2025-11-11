@@ -1,4 +1,4 @@
-import { createStore, get, set, del, update, keys } from 'idb-keyval';
+import { createStore, get, set } from 'idb-keyval';
 import type { TripPlan, Expense } from './types';
 
 const store = createStore('ai-travel-planner', 'kv');
@@ -16,6 +16,11 @@ export async function saveTrip(plan: TripPlan): Promise<void> {
   const arr = (await get(K.trips, store)) as TripPlan[] | undefined;
   const next = arr ? arr.filter(t => t.id !== plan.id).concat(plan) : [plan];
   await set(K.trips, next, store);
+}
+
+export async function getTrip(id: string): Promise<TripPlan | undefined> {
+  const arr = (await get(K.trips, store)) as TripPlan[] | undefined;
+  return arr?.find(t => t.id === id);
 }
 
 export async function deleteTrip(id: string): Promise<void> {
@@ -61,4 +66,3 @@ export async function getSettings(): Promise<Settings> {
 export async function setSettings(s: Settings): Promise<void> {
   await set(SETTINGS_KEY, s, store);
 }
-

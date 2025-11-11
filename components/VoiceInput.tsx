@@ -5,9 +5,10 @@ type Props = {
   placeholder?: string;
   onResult?: (text: string) => void;
   buttonLabel?: string;
+  className?: string;
 };
 
-export default function VoiceInput({ placeholder, onResult, buttonLabel = '语音输入' }: Props) {
+export default function VoiceInput({ placeholder, onResult, buttonLabel = '语音输入', className }: Props) {
   const [supported, setSupported] = useState(false);
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
@@ -46,10 +47,10 @@ export default function VoiceInput({ placeholder, onResult, buttonLabel = '语�
   };
 
   if (!supported) {
-    return <button className="ghost" title="浏览器不支持语音输入" disabled>麦克风不可用</button>;
+    return <button className={`ghost ${className ?? ''}`} title="浏览器不支持语音输入" disabled>麦克风不可用</button>;
   }
   return (
-    <button onClick={toggle} aria-pressed={listening} title={placeholder}>
+    <button className={className} onClick={toggle} aria-pressed={listening} title={placeholder}>
       {listening ? '正在听…点击停止' : buttonLabel}
     </button>
   );

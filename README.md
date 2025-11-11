@@ -1,76 +1,83 @@
 # AI Travel Planner (Web)
 
-简化旅行规划过程，通过 AI 了解用户需求，自动生成详细的旅行路线和建议，并提供实时旅行辅助。
+Æther Trips 是一款语音驱动的 Web 端 AI 旅行规划师：输入（或说出）目的地、天数、预算与偏好后，系统会生成逐日行程、公共交通方案、地图动线以及依据高德推荐榜单的酒店建议。
 
-本仓库包含：
-- Web 前端（Next.js + TypeScript）
-- 语音输入（浏览器 Web Speech API）
-- 地图（高德/百度任选，其 API Key 在设置页输入）
-- 行程规划与费用预算（可选 LLM，Key 在设置页输入）
-- 本地数据存储（IndexedDB）与可选云端同步（Supabase）
-- Docker 镜像与 GitHub Actions（可选推送至阿里云镜像仓库）
+## 亮点功能
 
-重要注意：不要将任何 API Key 写入代码或提交到仓库。项目提供“设置”页输入与本地保存 Key，或通过环境变量/仓库密钥配置。
+- **智能行程规划**
+  - `/api/plan` 使用用户提供的 OpenAI 兼容 LLM（未配置时回退到本地 Mock）。
+  - Prompt 强制输出结构化 JSON：每日行程带 `location.lat/lng`（仅用于地图绘制）、`transit.segments`（地铁/公交/火车的耗时与费用）以及 `hotels`（含“高德推荐榜单”标签、评分、价格）。
+  - 前端按时间线展示亮点标签与交通方案，同时引用 # 编号定位对应地点。
+
+- **地图与图钉**
+  - 设置页可切换高德/百度地图，并输入各自 JS SDK Key。
+  - 地图以编号图钉呈现每日行程，鼠标悬停会显示“#N · 地名”，折线自动连结全程路线。
+  - 面板同步列出“#N ↔ 地名”的对应关系，满足“在地图上显示每天要去的地方”的需求而无需暴露经纬度。
+
+- **酒店推荐**
+  - 首页展示 1–2 家“高德推荐榜单”酒店卡片，包含评分、价格、地址与标签。
+  - Prompt 规范 `rankLabel` 的格式（如“高德推荐榜 TOP 1”），保证文案稳定。
+
+- **公共交通方案**
+  - 每条行程都内嵌公共交通摘要与逐段方案，覆盖地铁/公交/火车/步行等组合。
+  - UI 将耗时、费用、站点整合在同一张卡片，为“综合各类公共交通方式的通勤方案”提供结构化数据。
+
+- **语音输入 + 费用管理**
+  - 浏览器 Web Speech API 提供语音输入，无需额外 Key。
+  - 费用页支持语音记账，本地 IndexedDB 持久化，可选接入 Supabase 云端同步。
+
+- **记录可查**
+  - “我的行程”支持查看详情，详情页包含地图、逐日行程与通勤方案。
+  - 数据默认储存在 IndexedDB，可在设置页打开 Supabase 同步。
 
 ## 快速开始
 
-1. 安装依赖
-   - Node.js 18+（建议 20）
-   - `npm install`
+```bash
+npm install
+npm run dev   # http://localhost:3000
+```
 
-2. 开发运行
-   - `npm run dev`
-   - 打开 `http://localhost:3000`
+运行后进入“设置”页粘贴：
 
-3. 配置 API Keys（运行后在应用内设置页完成）：
-   - 地图：高德或百度 Map JS SDK Key
-   - LLM：OpenAI 兼容接口 Base URL、Model、API Key（可使用阿里云百炼平台）
-   - Supabase：项目 URL 与 Anon Key（用于登录与云同步，可选）
+- 地图：高德或百度 JS SDK Key；
+- LLM：OpenAI 兼容 Base URL / Model / API Key（也可使用阿里云百炼兼容接口）；
+- Supabase（可选）：项目 URL 与 Anon Key。
 
-4. 构建与运行（Docker）
-   - `npm run build`
-   - `docker build -t ai-travel-planner:local .`
-   - `docker run -p 3000:3000 ai-travel-planner:local`
+Docker 方式：
 
-## 功能概览
+```bash
+npm run build
+docker build -t ai-travel-planner:local .
+docker run -p 3000:3000 ai-travel-planner:local
+```
 
-- 智能行程规划：
-  - 通过文本或语音输入目的地/天数/预算/偏好等，生成包含交通、住宿、景点、餐厅的行程草案。
-  - 后端提供 `/api/plan` 接口，支持使用用户提供的 LLM Key 调用 OpenAI 兼容接口；未配置时返回本地 Mock，便于无 Key 体验。
+## 设计与交互
 
-- 费用预算与管理：
-  - 通过 `/api/budget`估算预算；
-  - 在“费用”页面用语音快速记账，并持久化到本地/云端。
+- 半透明玻璃拟态 + 大圆角的视觉风格，搭配 SF Pro 字体与浅色渐变背景。
+- 首页整合表单、地图、每日行程、公共交通与酒店卡片，信息层级清晰。
+- MapView 使用编号图钉 + 悬停提示，并自动绘制路线折线。
 
-- 用户管理与数据存储：
-  - 本地默认使用 IndexedDB 存储行程与消费；
-  - 可在设置中启用 Supabase，同步计划、偏好与费用；
-  - 注册/登录采用 Supabase Auth。
+## 数据与安全
 
-- 地图与导航：
-  - 选择高德或百度，地图组件将动态加载对应 SDK；
-  - 展示行程地点、路径草案与基本导航链接。
+- 所有 Key 均保存在浏览器 IndexedDB，不会进入仓库。
+- `/api/plan`、`/api/budget` 只有在提供 LLM Key 时才会访问远程模型；否则返回本地 Mock。
+- README、submission.pdf 均提醒不要在代码层面硬编码密钥。
 
-## 部署与 CI/CD
+## 部署 / CI
 
-- Docker：仓库包含多阶段构建镜像，生产运行使用 `node:20-alpine`。
-- GitHub Actions：`.github/workflows/docker.yml` 实现镜像构建与推送至阿里云镜像仓库。
-  - 配置以下仓库密钥后自动推送：
-    - `ALIYUN_REGISTRY`（例：`registry.cn-hangzhou.aliyuncs.com`）
-    - `ALIYUN_NAMESPACE`（你的命名空间）
-    - `ALIYUN_USERNAME` / `ALIYUN_PASSWORD`
-    - `IMAGE_NAME`（例：`ai-travel-planner`）
+- `Dockerfile` 采用多阶段构建，最终基于 `node:20-alpine` 运行 Next.js standalone 产物。
+- `.github/workflows/docker.yml` 可在 push 时构建镜像；若配置了 `ALIYUN_*` 与 `IMAGE_NAME` 仓库密钥，会自动推送到阿里云镜像仓库。
+- `submission.pdf` 提供仓库链接与 README 摘要，方便交付材料。
 
-## 安全与合规
+## 常用脚本
 
-- 切勿在代码中硬编码任何密钥。
-- 本应用将密钥保存在浏览器 `localStorage`；
-  - 如果你不希望密钥进入服务端日志，请保持“仅前端直连”模式；
-  - LLM 代理 API 仅在你主动提供 Key 时调用，默认返回本地 Mock。
+- `npm run dev`
+- `npm run build`
+- `npm run start`
+- `npm run lint`
 
-## 开发脚本
+## 可能的后续演进
 
-- `npm run dev` 开发模式
-- `npm run build` 生产构建
-- `npm run start` 生产启动
-- `npm run lint` 代码检查
+1. 调用真实的高德酒店/POI API，替换目前由 LLM 生成的榜单数据。
+2. 在 `/trips/[id]` 详情页支持导出 PDF 或分享链接。
+3. 将公共交通方案与地图进一步联动，例如根据交通方式渲染不同颜色的路线。
